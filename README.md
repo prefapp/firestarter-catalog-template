@@ -1,5 +1,5 @@
-# Catalog 
-  
+# Catalog
+
 This is the catalog repository for the Firestarter Backstage Application. This catalog representes all the information of the components seen in the organization, as well as all the workflows in order for the Firestarter system to work.
 
 The systems that are represented here are the followings:
@@ -11,35 +11,40 @@ The systems that are represented here are the followings:
 
 ## Structure
 
-This repository has all the componentes stored in the " catalog/* " path, where the `catalog-info.yaml` files are saved. Under the .github folder, all the workflows are stored. 
+This repository has all the componentes stored in the " catalog/* " path, where the `catalog-info.yaml` files are saved. Under the .github folder, all the workflows are stored.
 
 The definition of all the system is the following.
 
 ## Workflows
 
+### Importer
+
+This system will import all missing object form an organization to the catalog, so it can be used for initial import or to add missing, or manually created, artifacts to the repo, with the following workflows:
+
+* **Import Catalog:** This worflow retrieves all the artifacts at github's organization and creates the corresponding YAML files for each one. It also will import their current state, which will be stored into an AWS S3 bucket. At the end of the import process, all the catalog will be validated.
+
 ### Provisioning
 
-This system will provision a yaml that represents a component of the catalog using the Backstage CDKTF App and install its features from the "features" repository. In order for this to work we have the following workflows:
+This system will provision a yaml that represents a component of the catalog (new or updated) using the Backstage CDKTF App and install its features from the "features" repository. In order for this to work we have the following workflows:
 
-* repo-merge: Thanks to backstage we can create a yaml that represents exactly how we want our component to behave and create a pull-request to this repository, including scaffolding if needed, with the automerge label. This label will trigger this workflow that will check the changes in the repo (normally, a change in a yaml) a will call the cdktf provision wokflow that is in charge o provisioning the yaml. After that workflow finishes, will try to automerge the branch and delete it.
+* **Catalog Reconcile - Redux:** This workflow will detect the changed objects (or single object) and update other artifacts which are afected by the modified/created/deleted object, so everything is ready for the provisioner to apply the necesary changes. After this  workflow, every artifact on the catalog may be reconcilied with the changes added. The last step of this workflow will merge the change's branch with the main one, closing the PR.
 
-* cdktf-provision: This workflow will be triggered by the repo-merge. In here, we have a required input that is the yaml that has changed in the PR and that has been calculated in previous workflow. With this information, the wokflow will try to install the features of the yalm (if they exist) and try to provision the structure of the YAML using the Backstage CDKTF App. After that, it will try to push the scaffolded files in case they exist and modify the state of the component from PROVISION to PROVISIONED or ERROR; modifying the PR and finishing the workflow.
+* **CDKTF Reconcile:** This workflow is launched when a PR is merged. It will load all the artifacts at `PENDING_PROVISION`or `PENDING_DELITION` state and apply all the required changes so they achive the desired state (change properties, create teams, repositories, install features...). This workflow will also scaffold all the necesary structure of the repositories if necesary (sync scaffolding can be runned as a separated workflow too).
 
 ### Reconcile
 
 This system is in charge of reading all the YAMLs in the repository, and trying to provision all of them in order to avoid changes in the components that are not expected, and having the YAMLs in the repo representing the real structure of all of them. It is composed of just the following workflow:
 
-* reconcile: This workflow has to be manually triggered specifying the type of the component and/or the name of it. Or it will be automatically triggered by a cron job every day at 00:00 for all the components. It will run a script in the Backstage CDKTF App that will read of the components in the repo, try to provision them, and in case some of them fail mark them as failed in order to see what went wrong.
+* **Reconcile all artifacts**: This workflow has to be manually triggered and it will be automatically triggered by a cron job every day at 00:00 UTC for all the components. It will run a script in the Backstage CDKTF App that will read of the components in the repo (with no `ERROR` state), try to provision them, and in case some of them fail mark them as failed in order to see what went wrong.
 
+### Validator
 
-### PR-Verify
+This system is in charge of making catalog validations, checking all artifacts and their references are valid. It has the following workflows:
 
-This workflow will avoid changes in fields of the YAML that can not be changed. Every component in the catalog is represented by a json-schema, and with that there are some fields that are expected to not be able to be modified (like the field "kind" in the component). This workflow will check wheter or not a read only field has been modified depending on the type of component passed. And, in that case, will fail the PR-Verify, making it impossible to provision that change. The workflow is the following:
+* **Validate catalog**: This workflow loads all the yamls of the catalog repository and checks all of them and their references are valid.
 
-* pr-verify: This workflow will checkout the repo, and check the changes in the PR. In case there are changes, it will run a script in the Backstage CDKTF App that will check what fields has changed since the previous version of the file, and in case they are read only, the workflow will fail.
+### Scaffolder
 
-## Update
+This system is in charge of keep scaffoldings up to date, using the same package which the provisioning system uses. Composed by one workflow:
 
-This simple workflow will try to provision a change in a YAML after it has been modified from the repo without the use of the Automerge label. This is specially usefull when we are modifying an existing YAML and not creating a new one. How it works is very similar to the Provision system. The workflow file is:
-
-* merge-pr: This workflow will be triggered only when a Pull Request is closed AND the label of automerge is NOT present. So, in this case we know that we are modifying an existing YAML and not creating a new one, and we can assume that this PR has been closed after a succesful PR-Verify run. So the workflow will try to provision again the existing YAML and saving the changes to the Terraform state.
+* **Sync Scaffoldings:** This workflow, manually tiggered, can apply all the pending scaffoldings on the `catalog/_scaffoldings` directory. Completed scaffoldings will be deleted from the folder.
