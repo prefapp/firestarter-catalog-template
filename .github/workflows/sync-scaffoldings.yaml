@@ -1,0 +1,57 @@
+name: Sync Scaffoldings
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: catalog-main
+  cancel-in-progress: false
+
+jobs:
+  checkout-branches:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/prefapp/firestarter:main-full
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Generate app installation token
+        id: generate-token
+        uses: peter-murray/workflow-application-token-action@v2
+        with:
+          application_id:  ${{ secrets.APP_ID_GITHUB }}
+          application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
+          organization: prefapp
+
+
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Sync scaffoldings
+        env:
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{vars.FIRESTARTER_ORG}}
+          CATALOG_SCAFFOLDINGS: '/__w/catalog/catalog/catalog/_scaffoldings'
+        run: |
+          #find /__w/catalog
+          cd /library
+          ./run.sh scaffold --sync
+
+      - name: Push catalog
+        run: |
+          git config --global --add safe.directory /__w/catalog/catalog
+          cd catalog
+          status=$(git status --porcelain)
+          if [ -n "$status" ]; then
+            git config user.name 'backstage'
+            git config user.email 'backstage@backstage.backstage'
+            git add .
+            git commit -m "Add imported catalog"
+            git push origin ${GITHUB_REF_NAME}
+          else
+            echo "No new changes to commit"
+          fi

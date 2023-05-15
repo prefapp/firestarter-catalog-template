@@ -1,0 +1,26 @@
+name: Validate Catalog
+
+on:
+  workflow_dispatch:
+
+jobs:
+  checkout-branches:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/prefapp/firestarter:main-slim
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+        with:
+          ref: main
+
+      - name: Validation
+        env:
+          CATALOG_MAIN_STATE: ${{ github.workspace }}/catalog
+        run: |
+         cd /library
+         ./run.sh validate
