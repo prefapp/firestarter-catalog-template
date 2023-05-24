@@ -3,14 +3,14 @@ name: Catalog Reconcile - Redux
 on:
   pull_request:
     paths:
-      - 'catalog/components/**.yaml'
-      - 'catalog/components/**.yml'
-      - 'catalog/users/**.yaml'
-      - 'catalog/users/**.yml'
-      - 'catalog/groups/**.yaml'
-      - 'catalog/groups/**.yml'
-      - 'catalog/systems/**.yaml'
-      - 'catalog/systems/**.yml'
+      - "catalog/components/**.yaml"
+      - "catalog/components/**.yml"
+      - "catalog/users/**.yaml"
+      - "catalog/users/**.yml"
+      - "catalog/groups/**.yaml"
+      - "catalog/groups/**.yml"
+      - "catalog/systems/**.yaml"
+      - "catalog/systems/**.yml"
 
 concurrency:
   group: catalog-main
@@ -42,14 +42,14 @@ jobs:
         id: generate-token
         uses: peter-murray/workflow-application-token-action@v2
         with:
-          application_id:  ${{ secrets.APP_ID_GITHUB }}
+          application_id: ${{ secrets.APP_ID_GITHUB }}
           application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
           organization: prefapp
 
       - uses: dorny/paths-filter@v2
         id: filter
         with:
-          list-files: 'json'
+          list-files: "json"
           working-directory: desired_state
           filters: |
             deleted:
@@ -66,18 +66,18 @@ jobs:
           CATALOG_DESIRED_STATE: /__w/catalog/catalog/desired_state/catalog
           CATALOG_DELETIONS_STATE: /__w/catalog/catalog/desired_state/catalog/deletions
           TOKEN: ${{ steps.generate-token.outputs.token }}
-          DEBUG: 'firestarter:*'
+          DEBUG: "firestarter:*"
         run: |
-         mkdir /tmp/briefing
-         clean_output_deleted_files=$(echo '${{ steps.filter.outputs.deleted_files }}' | sed 's/catalog\///g')
-         echo "$clean_output_deleted_files" > /tmp/briefing/deletions.json
-         clean_output_modifications=$(echo '${{ steps.filter.outputs.changed_files }}' | sed 's/catalog\///g')
-         echo "$clean_output_modifications" > /tmp/briefing/modifications.json
-         cat /tmp/briefing/deletions.json
-         cat /tmp/briefing/modifications.json
-         cd /library
-         cat /tmp/briefing/modifications.json
-         ./run.sh changes -m  /tmp/briefing/modifications.json -d /tmp/briefing/deletions.json
+          mkdir /tmp/briefing
+          clean_output_deleted_files=$(echo '${{ steps.filter.outputs.deleted_files }}' | sed 's/catalog\///g')
+          echo "$clean_output_deleted_files" > /tmp/briefing/deletions.json
+          clean_output_modifications=$(echo '${{ steps.filter.outputs.changed_files }}' | sed 's/catalog\///g')
+          echo "$clean_output_modifications" > /tmp/briefing/modifications.json
+          cat /tmp/briefing/deletions.json
+          cat /tmp/briefing/modifications.json
+          cd /library
+          cat /tmp/briefing/modifications.json
+          ./run.sh changes -m  /tmp/briefing/modifications.json -d /tmp/briefing/deletions.json
 
       - name: Push to branch
         run: |
@@ -103,7 +103,6 @@ jobs:
             exit 0
           fi
 
-
   merge-branch:
     runs-on: ubuntu-latest
     needs: reconcile-artifact-definitions
@@ -118,7 +117,7 @@ jobs:
         id: generate-token
         uses: peter-murray/workflow-application-token-action@v2
         with:
-          application_id:  ${{ secrets.APP_ID_GITHUB }}
+          application_id: ${{ secrets.APP_ID_GITHUB }}
           application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
 
       - name: Merge PR for current branch

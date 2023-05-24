@@ -2,7 +2,7 @@ name: Reconcile all artifacts
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Every day at 0:00 UTC
+    - cron: "0 0 * * *" # Every day at 0:00 UTC
   workflow_dispatch:
 
 concurrency:
@@ -23,7 +23,7 @@ jobs:
         id: generate-token
         uses: peter-murray/workflow-application-token-action@v2
         with:
-          application_id:  ${{ secrets.APP_ID_GITHUB }}
+          application_id: ${{ secrets.APP_ID_GITHUB }}
           application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
           organization: prefapp
 
@@ -37,15 +37,15 @@ jobs:
         env:
           CATALOG_MAIN_STATE: ${{ github.workspace }}/main_state/catalog
         run: |
-         cd /library
-         ./run.sh validate
+          cd /library
+          ./run.sh validate
 
-      - name: Reconcile full catalog
-        id: reconcile
+      - name: Apply pending changes
+        id: pending
         env:
           CDKTF_DISABLE_LOGGING: false
           CDKTF_LOG_LEVEL: ERROR
-          CDKTF_CONFIG_FILES: '${{ github.workspace }}/main_state/.cdktf'
+          CDKTF_CONFIG_FILES: "${{ github.workspace }}/main_state/.cdktf"
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           GITHUB_APP_INSTALLATION_ID: ${{ secrets.APP_INSTALLATION_ID_GITHUB }}
@@ -57,7 +57,41 @@ jobs:
           S3_LOCK: ${{ vars.FIRESTARTER_DYNAMO_TABLE }}
           S3_BUCKET: ${{ vars.FIRESTARTER_S3_BUCKET }}
           EXCLUSIONS_PATH: ${{ vars.EXCLUSIONS_PATH }}
-          PROVISION_BRANCH_PROTECTION: 'disabled'
+          PROVISION_BRANCH_PROTECTION: "disabled"
+          AWS_DYNAMO_TABLE_NAME: ${{ vars.FIRESTARTER_DYNAMO_TABLE }}
+          CATALOG_MAIN_STATE: ${{ github.workspace }}/main_state/catalog
+          CATALOG_DELETIONS_STATE: ${{ github.workspace }}/main_state/catalog/deletions
+        run: |
+          cd /library
+          ./run.sh provisioner --provision
+
+      - name: Sync scaffoldings
+        env:
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          ORG: ${{vars.FIRESTARTER_ORG}}
+          CATALOG_SCAFFOLDINGS: "${{ github.workspace }}/main_state/catalog/_scaffoldings"
+        run: |
+          cd /library
+          ./run.sh scaffold --sync
+
+      - name: Reconcile full catalog
+        id: reconcile
+        env:
+          CDKTF_DISABLE_LOGGING: false
+          CDKTF_LOG_LEVEL: ERROR
+          CDKTF_CONFIG_FILES: "${{ github.workspace }}/main_state/.cdktf"
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          GITHUB_APP_INSTALLATION_ID: ${{ secrets.APP_INSTALLATION_ID_GITHUB }}
+          GITHUB_APP_PEM_FILE: ${{ secrets.APP_PEM_FILE_GITHUB }}
+          GITHUB_APP_ID: ${{ secrets.APP_ID_GITHUB }}
+          ORG: ${{ vars.FIRESTARTER_ORG }}
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          S3_REGION: eu-west-1
+          S3_LOCK: ${{ vars.FIRESTARTER_DYNAMO_TABLE }}
+          S3_BUCKET: ${{ vars.FIRESTARTER_S3_BUCKET }}
+          EXCLUSIONS_PATH: ${{ vars.EXCLUSIONS_PATH }}
+          PROVISION_BRANCH_PROTECTION: "disabled"
           AWS_DYNAMO_TABLE_NAME: ${{ vars.FIRESTARTER_DYNAMO_TABLE }}
           CATALOG_MAIN_STATE: ${{ github.workspace }}/main_state/catalog
           CATALOG_DELETIONS_STATE: ${{ github.workspace }}/main_state/catalog/deletions
@@ -75,10 +109,12 @@ jobs:
           # Check if there are any changes in the git repository
           status=$(git status --porcelain)
           if [ -n "$status" ]; then
+            # Pull the catalog
+            git pull origin $(git rev-parse --abbrev-ref HEAD)
             # Add all changes to the staging area
             git add .
             # Commit changes with a default message
-            git commit -m "Automated commit by script."
+            git commit -m "Catalog reconciliation."
             # Push changes to the remote repository
             git push origin $(git rev-parse --abbrev-ref HEAD)
           else

@@ -22,5 +22,5 @@ jobs:
         env:
           CATALOG_MAIN_STATE: ${{ github.workspace }}/catalog
         run: |
-         cd /library
-         ./run.sh validate
+          cd /library
+          ./run.sh validate

@@ -21,10 +21,9 @@ jobs:
         id: generate-token
         uses: peter-murray/workflow-application-token-action@v2
         with:
-          application_id:  ${{ secrets.APP_ID_GITHUB }}
+          application_id: ${{ secrets.APP_ID_GITHUB }}
           application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
           #organization: prefapp
-
 
       - name: Checkout main branch
         uses: actions/checkout@v3
