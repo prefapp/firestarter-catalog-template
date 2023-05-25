@@ -14,6 +14,7 @@ concurrency:
 
 jobs:
   provision:
+    if: github.event.pull_request.merged == true || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/prefapp/firestarter:main-full
