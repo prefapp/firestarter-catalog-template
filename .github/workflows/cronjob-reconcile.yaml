@@ -32,6 +32,7 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           path: main_state
+          token: ${{ steps.generate-token.outputs.token }}
 
       - name: Validate current catalog
         env:
@@ -116,7 +117,7 @@ jobs:
             # Commit changes with a default message
             git commit -m "Catalog reconciliation."
             # Push changes to the remote repository
-            git push origin $(git rev-parse --abbrev-ref HEAD)
+            git push origin $(git rev-parse --abbrev-ref HEAD) --force
           else
             echo "No changes in the repository."
           fi
