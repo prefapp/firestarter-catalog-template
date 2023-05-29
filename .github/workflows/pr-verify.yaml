@@ -1,0 +1,79 @@
+name: pr-verify
+
+on:
+  pull_request:
+    paths:
+      - "catalog/components/**.yaml"
+      - "catalog/components/**.yml"
+      - "catalog/users/**.yaml"
+      - "catalog/users/**.yml"
+      - "catalog/groups/**.yaml"
+      - "catalog/groups/**.yml"
+      - "catalog/systems/**.yaml"
+      - "catalog/systems/**.yml"
+    types:
+      - opened
+      - synchronize
+
+jobs:
+  check-artifacts-can-be-reconciled:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/prefapp/firestarter:main-slim
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout main branch
+        uses: actions/checkout@v3
+        with:
+          ref: main
+          path: main_state
+
+      - name: Checkout new branch (PR head ref)
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.head_ref }}
+          path: desired_state
+
+      - name: Generate app installation token
+        id: generate-token
+        uses: peter-murray/workflow-application-token-action@v2
+        with:
+          application_id: ${{ secrets.APP_ID_GITHUB }}
+          application_private_key: ${{ secrets.APP_PEM_FILE_GITHUB }}
+          organization: prefapp
+
+      - uses: dorny/paths-filter@v2
+        id: filter
+        with:
+          list-files: "json"
+          working-directory: desired_state
+          filters: |
+            deleted:
+              - 'catalog/deletions/**'
+            changed:
+              - 'catalog/groups/**'
+              - 'catalog/users/**'
+              - 'catalog/components/**'
+              - 'catalog/systems/**'
+
+      - name: Briefing & Reconcile
+        env:
+          CATALOG_MAIN_STATE: /__w/catalog/catalog/main_state/catalog
+          CATALOG_DESIRED_STATE: /__w/catalog/catalog/desired_state/catalog
+          CATALOG_DELETIONS_STATE: /__w/catalog/catalog/desired_state/catalog/deletions
+          TOKEN: ${{ steps.generate-token.outputs.token }}
+          DEBUG: "firestarter:*"
+        run: |
+          mkdir /tmp/briefing
+          clean_output_deleted_files=$(echo '${{ steps.filter.outputs.deleted_files }}' | sed 's/catalog\///g')
+          echo "$clean_output_deleted_files" > /tmp/briefing/deletions.json
+          clean_output_modifications=$(echo '${{ steps.filter.outputs.changed_files }}' | sed 's/catalog\///g')
+          echo "$clean_output_modifications" > /tmp/briefing/modifications.json
+          cat /tmp/briefing/deletions.json
+          cat /tmp/briefing/modifications.json
+          cd /library
+          cat /tmp/briefing/modifications.json
+          ./run.sh changes -m  /tmp/briefing/modifications.json -d /tmp/briefing/deletions.json
