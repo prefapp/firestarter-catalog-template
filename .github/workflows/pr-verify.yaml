@@ -3,11 +3,16 @@ name: pr-verify
 on:
   pull_request:
     paths:
-      - "catalog/components/**.{yaml,yml}"
-      - "catalog/components/**/.*.{yaml,yml}"
-      - "catalog/users/**.{yaml,yml}"
-      - "catalog/groups/**.{yaml,yml}"
-      - "catalog/systems/**.{yaml,yml}"
+      - "catalog/components/**.yaml"
+      - "catalog/components/.**.yaml"
+      - "catalog/components/**.yml"
+      - "catalog/components/.**.yml"
+      - "catalog/users/**.yaml"
+      - "catalog/users/**.yml"
+      - "catalog/groups/**.yaml"
+      - "catalog/groups/**.yml"
+      - "catalog/systems/**.yaml"
+      - "catalog/systems/**.yml"
     types:
       - opened
       - synchronize
