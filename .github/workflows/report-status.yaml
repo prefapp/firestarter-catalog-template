@@ -1,0 +1,47 @@
+name: Report by Status
+
+on:
+  workflow_dispatch:
+    inputs:
+      status:
+        description: "Status for the report"
+        required: true
+        default: "PENDING_REVIEW"
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/prefapp/firestarter:main-slim
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v3
+        with:
+          path: main_state
+
+      - name: Generate report
+        id: report
+        env:
+          CATALOG_MAIN_STATE: ${{ github.workspace }}/main_state/catalog
+          DEBUG: "firestarter:*"
+        run: |
+          cd /library
+          ./run.sh list -f /tmp/status_report.csv -s ${{ github.event.inputs.status }}
+
+      - name: Display results
+        run: |
+          lines=$(wc -l < /tmp/status_report.csv)
+          count=$((lines - 1))
+          echo "Artifacts in status ${{ github.event.inputs.status }}: ${count}"
+          echo ""
+          cat /tmp/status_report.csv
+
+      - name: Upload report
+        uses: actions/upload-artifact@v3
+        with:
+          name: status_report
+          path: /tmp/status_report.csv
