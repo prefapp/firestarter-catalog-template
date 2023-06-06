@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  checkout-branches:
+  import-artifacts:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/prefapp/firestarter:main-full
@@ -58,21 +58,11 @@ jobs:
           cd /library
           ./run.sh import --all -c /__w/catalog/catalog
 
-      - name: Create imported artifacts artifact
+      - name: Create csv report
         uses: actions/upload-artifact@v3
         with:
-          name: importer_results
-          path: /tmp/import.csv
-
-      - name: Create components artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: components_report_to_review
-          path: /tmp/repos.csv
-
-      - name: Remove uploaded artifacts
-        run: |
-          rm -f /tmp/import.csv /tmp/repos.csv
+          name: report
+          path: /tmp/*.csv
 
       - name: Push catalog
         run: |
@@ -88,6 +78,22 @@ jobs:
           else
             echo "No new changes to commit"
           fi
+
+      - name: Generate results info
+        run: |
+          # Count results
+          lines=$(wc -l < /tmp/import.csv)
+          count=$((lines - 1))
+          # Generate table data
+          header=$(head -1 /tmp/import.csv)
+          data=$(tail -n +2 /tmp/import.csv)
+          header_row=$(echo "$header" | awk -F ';' '{ printf "| %s ", $1; for (i=2; i<=NF; i++) printf "| %s ", $i; printf "|\n"}')
+          separator_row=$(echo "$header" | awk -F ';' '{ for (i=1; i<=NF; i++) printf "| -- "; printf "|\n"}')
+          data_rows=$(echo "$data" | awk -F ';' '{ printf "| %s ", $1; for (i=2; i<=NF; i++) printf "| %s ", $i; printf "|\n"}')
+          markdown_table=$(echo "$header_row"; echo "$separator_row"; echo "$data_rows")
+          echo "## Artifacts imported: ${count}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "${markdown_table}" >> $GITHUB_STEP_SUMMARY
 
       - name: Validate resultant catalog
         env:
