@@ -30,15 +30,6 @@ jobs:
         with:
           ref: main
 
-      - uses: hashicorp/setup-terraform@v2
-        name: Setup Terraform
-        with:
-          terraform_version: ${{vars.TERRAFORM_VERSION}}
-          terraform_wrapper: false
-
-      - name: Add TERRAFORM_BIN to ENV
-        run: echo "TERRAFORM_BIN=$(which terraform)" >> $GITHUB_ENV
-
       - name: Import catalog
         env:
           TOKEN: ${{ steps.generate-token.outputs.token }}
@@ -47,6 +38,7 @@ jobs:
           S3_REGION: ${{vars.S3_REGION}}
           REPO_CATALOG: catalog
           TERRAFORM_WORK: "/tmp"
+          TERRAFORM_BIN: /usr/local/bin/terraform
           PROVIDER_TYPE: ${{vars.STATUS_PROVIDER_TYPE}}
           AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
           AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
